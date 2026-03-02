@@ -18,11 +18,15 @@
 
           src = ./.;
 
-          vendorHash = "sha256-rip6+uMDo4h3DfUQ4fYn+nPV9B8XxD6fexkCT2qtqLQ=";
+          vendorHash = "sha256-2fYlru/KcmaHRfgkwzEu+p1dS8Ehdhu9bdGNdEo1AcA=";
 
           subPackages = [ "." ];
 
           ldflags = [ "-s" "-w" ];
+
+          postInstall = ''
+            ln -sf $out/bin/nostr-dump-cli $out/bin/nostr-dump
+          '';
 
           meta = with pkgs.lib; {
             description = "CLI to fetch nostr events for an npub with pagination across relays";

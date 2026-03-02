@@ -113,13 +113,12 @@ func main() {
 				filter.Until = cursorUntil
 			}
 
-			relayStart := time.Now()
 			events, ferr := fetchRelayPage(relay, filter, time.Duration(*timeoutSec)*time.Second)
 			if ferr != nil {
-				log.Printf("❌ page=%d relay=%s err=%v", page, relay, ferr)
+				bar.Describe(fmt.Sprintf("page=%d relay=%s error", page, relay))
+				_, _ = fmt.Fprintf(os.Stderr, "\n[warn] page=%d relay=%s err=%v\n", page, relay, ferr)
 				continue
 			}
-			log.Printf("✅ page=%d relay=%s fetched=%d elapsed=%s", page, relay, len(events), time.Since(relayStart).Round(time.Millisecond))
 			for _, ev := range events {
 				if _, ok := seen[ev.ID]; ok {
 					continue
@@ -133,25 +132,25 @@ func main() {
 		}
 
 		if len(pageEvents) == 0 {
-			log.Printf("done: no more events at page=%d", page)
+			bar.Describe(fmt.Sprintf("done at page=%d (no more events)", page))
 			break
 		}
 
 		all = append(all, pageEvents...)
-		log.Printf("📦 page=%d unique=%d total=%d next_until=%d", page, len(pageEvents), len(all), oldest-1)
+		bar.Describe(fmt.Sprintf("page=%d unique=%d total=%d", page, len(pageEvents), len(all)))
 
 		if oldest <= 0 || oldest == int64(1<<62-1) {
-			log.Printf("done: no valid oldest timestamp at page=%d", page)
+			bar.Describe(fmt.Sprintf("done at page=%d (invalid oldest)", page))
 			break
 		}
 		next := oldest - 1
 		if cursorUntil > 0 && next >= cursorUntil {
-			log.Printf("done: pagination cursor stopped moving (old=%d new=%d)", cursorUntil, next)
+			bar.Describe("done (pagination cursor stopped)")
 			break
 		}
 		if *since > 0 && next < *since {
 			cursorUntil = *since
-			log.Printf("reached since boundary: %d", *since)
+			bar.Describe(fmt.Sprintf("reached since boundary: %d", *since))
 			break
 		}
 		cursorUntil = next

@@ -1,6 +1,6 @@
 # nostr-dump-cli
 
-`npub` を指定して、Relay から投稿をできるだけ全件取得して JSONL に保存する CLI です。
+`npub` を指定して、Relay から投稿をできるだけ全件取得して JSONL を標準出力する CLI です。
 
 ## Install
 
@@ -16,11 +16,7 @@ go build -o nostr-dump .
   --npub npub1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   --relays wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band \
   --kinds 1 \
-  --batch 500 \
-  --out posts.jsonl
-
-# --out省略でstdout
-./nostr-dump --npub npub1xxxxx --kinds 1 > posts.jsonl
+  --batch 500 > posts.jsonl
 ```
 
 ### 主なオプション
@@ -32,7 +28,8 @@ go build -o nostr-dump .
 - `--since`: created_at 下限 (unix sec)
 - `--until`: created_at 上限 (unix sec)
 - `--max-pages`: ページ上限（0で無制限）
-- `--out`: 出力ファイル(JSONL)。未指定時は stdout
+
+※ JSONLは常に stdout に出ます。進捗ログは stderr に出ます。
 
 ## ページネーション戦略
 

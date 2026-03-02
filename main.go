@@ -41,7 +41,6 @@ func main() {
 		relaysRaw  = flag.String("relays", "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band", "comma-separated relay URLs")
 		kindsRaw   = flag.String("kinds", "1", "comma-separated kinds")
 		batch      = flag.Int("batch", 500, "events per relay per page")
-		out        = flag.String("out", "", "output JSONL file (default: stdout)")
 		timeoutSec = flag.Int("timeout", 15, "relay read timeout seconds")
 		since      = flag.Int64("since", 0, "lower bound created_at (unix seconds)")
 		until      = flag.Int64("until", 0, "upper bound created_at (unix seconds)")
@@ -72,6 +71,9 @@ func main() {
 
 	seen := make(map[string]struct{}, 20000)
 	all := make([]Event, 0, 20000)
+	startedAt := time.Now()
+
+	log.Printf("🚀 start npub=%s relays=%d kinds=%v batch=%d", *npub, len(relays), kinds, *batch)
 
 	cursorUntil := *until
 	page := 0
@@ -98,11 +100,13 @@ func main() {
 				filter.Until = cursorUntil
 			}
 
+			relayStart := time.Now()
 			events, ferr := fetchRelayPage(relay, filter, time.Duration(*timeoutSec)*time.Second)
 			if ferr != nil {
-				log.Printf("[warn] relay=%s page=%d err=%v", relay, page, ferr)
+				log.Printf("❌ page=%d relay=%s err=%v", page, relay, ferr)
 				continue
 			}
+			log.Printf("✅ page=%d relay=%s fetched=%d elapsed=%s", page, relay, len(events), time.Since(relayStart).Round(time.Millisecond))
 			for _, ev := range events {
 				if _, ok := seen[ev.ID]; ok {
 					continue
@@ -121,7 +125,7 @@ func main() {
 		}
 
 		all = append(all, pageEvents...)
-		log.Printf("page=%d got=%d total=%d until=%d", page, len(pageEvents), len(all), cursorUntil)
+		log.Printf("📦 page=%d unique=%d total=%d next_until=%d", page, len(pageEvents), len(all), oldest-1)
 
 		if oldest <= 0 || oldest == int64(1<<62-1) {
 			log.Printf("done: no valid oldest timestamp at page=%d", page)
@@ -147,14 +151,11 @@ func main() {
 		return all[i].CreatedAt < all[j].CreatedAt
 	})
 
-	if err := writeJSONL(*out, all); err != nil {
+	if err := writeJSONL(all); err != nil {
 		log.Fatalf("failed to write output: %v", err)
 	}
-	if *out == "" || *out == "-" {
-		log.Printf("done: wrote %d events to stdout", len(all))
-	} else {
-		log.Printf("done: wrote %d events to %s", len(all), *out)
-	}
+	elapsed := time.Since(startedAt).Round(time.Millisecond)
+	log.Printf("🏁 done events=%d elapsed=%s", len(all), elapsed)
 }
 
 func fetchRelayPage(relayURL string, filter Filter, timeout time.Duration) ([]Event, error) {
@@ -217,23 +218,8 @@ func fetchRelayPage(relayURL string, filter Filter, timeout time.Duration) ([]Ev
 	}
 }
 
-func writeJSONL(path string, events []Event) error {
-	var (
-		w   *bufio.Writer
-		out *os.File
-	)
-
-	if path == "" || path == "-" {
-		w = bufio.NewWriter(os.Stdout)
-	} else {
-		f, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-		out = f
-		defer out.Close()
-		w = bufio.NewWriter(out)
-	}
+func writeJSONL(events []Event) error {
+	w := bufio.NewWriter(os.Stdout)
 	for _, ev := range events {
 		b, err := json.Marshal(ev)
 		if err != nil {

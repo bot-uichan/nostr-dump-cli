@@ -17,6 +17,7 @@ import (
 
 	"github.com/btcsuite/btcutil/bech32"
 	"github.com/gorilla/websocket"
+	"github.com/schollz/progressbar/v3"
 )
 
 type Event struct {
@@ -75,6 +76,16 @@ func main() {
 
 	log.Printf("🚀 start npub=%s relays=%d kinds=%v batch=%d", *npub, len(relays), kinds, *batch)
 
+	bar := progressbar.NewOptions(-1,
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionSetDescription("fetching nostr events..."),
+		progressbar.OptionSetWidth(12),
+		progressbar.OptionShowCount(),
+		progressbar.OptionThrottle(80*time.Millisecond),
+		progressbar.OptionSetRenderBlankState(true),
+	)
+
 	cursorUntil := *until
 	page := 0
 
@@ -88,6 +99,8 @@ func main() {
 		oldest := int64(1<<62 - 1)
 
 		for _, relay := range relays {
+			bar.Describe(fmt.Sprintf("page=%d relay=%s", page, relay))
+			_ = bar.Add(1)
 			filter := Filter{
 				Authors: []string{pubkey},
 				Kinds:   kinds,
@@ -143,6 +156,8 @@ func main() {
 		}
 		cursorUntil = next
 	}
+
+	_ = bar.Finish()
 
 	sort.Slice(all, func(i, j int) bool {
 		if all[i].CreatedAt == all[j].CreatedAt {

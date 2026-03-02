@@ -41,7 +41,7 @@ func main() {
 		relaysRaw  = flag.String("relays", "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band", "comma-separated relay URLs")
 		kindsRaw   = flag.String("kinds", "1", "comma-separated kinds")
 		batch      = flag.Int("batch", 500, "events per relay per page")
-		out        = flag.String("out", "posts.jsonl", "output JSONL file")
+		out        = flag.String("out", "", "output JSONL file (default: stdout)")
 		timeoutSec = flag.Int("timeout", 15, "relay read timeout seconds")
 		since      = flag.Int64("since", 0, "lower bound created_at (unix seconds)")
 		until      = flag.Int64("until", 0, "upper bound created_at (unix seconds)")
@@ -150,7 +150,11 @@ func main() {
 	if err := writeJSONL(*out, all); err != nil {
 		log.Fatalf("failed to write output: %v", err)
 	}
-	log.Printf("done: wrote %d events to %s", len(all), *out)
+	if *out == "" || *out == "-" {
+		log.Printf("done: wrote %d events to stdout", len(all))
+	} else {
+		log.Printf("done: wrote %d events to %s", len(all), *out)
+	}
 }
 
 func fetchRelayPage(relayURL string, filter Filter, timeout time.Duration) ([]Event, error) {
@@ -214,13 +218,22 @@ func fetchRelayPage(relayURL string, filter Filter, timeout time.Duration) ([]Ev
 }
 
 func writeJSONL(path string, events []Event) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	var (
+		w   *bufio.Writer
+		out *os.File
+	)
 
-	w := bufio.NewWriter(f)
+	if path == "" || path == "-" {
+		w = bufio.NewWriter(os.Stdout)
+	} else {
+		f, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		out = f
+		defer out.Close()
+		w = bufio.NewWriter(out)
+	}
 	for _, ev := range events {
 		b, err := json.Marshal(ev)
 		if err != nil {

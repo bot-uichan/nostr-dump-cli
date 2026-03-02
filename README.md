@@ -18,6 +18,9 @@ go build -o nostr-dump .
   --kinds 1 \
   --batch 500 \
   --out posts.jsonl
+
+# --out省略でstdout
+./nostr-dump --npub npub1xxxxx --kinds 1 > posts.jsonl
 ```
 
 ### 主なオプション
@@ -29,7 +32,7 @@ go build -o nostr-dump .
 - `--since`: created_at 下限 (unix sec)
 - `--until`: created_at 上限 (unix sec)
 - `--max-pages`: ページ上限（0で無制限）
-- `--out`: 出力ファイル(JSONL)
+- `--out`: 出力ファイル(JSONL)。未指定時は stdout
 
 ## ページネーション戦略
 
